@@ -1,0 +1,38 @@
+install.packages("dplyr")
+
+setwd("~/Kaggle Data/Womens NCAA 2018/WDataFiles")
+library(dplyr)
+library(ggplot2)
+
+=
+
+reg_season = read.csv("WRegularSeasonCompactResults.csv", header = TRUE)
+head(reg_season)
+# tems included in the data
+teams = read.csv("WTeams.csv")
+# dim table for different spellings of the colleges
+teams_spell = read.csv("WTeamSpellings.csv", header = TRUE)
+head(teams_spell)
+# dim table for city where game took place
+cities = read.csv("WCities.csv", header = TRUE)
+head(cities)
+# dim table for seasons
+seasons = read.csv("WSeasons.csv", header = TRUE)
+head(seasons)
+# city where each game was held
+game_cities = read.csv("WGameCities.csv", header = TRUE)
+head(game_cities)
+# NCAA tournament results
+tourney_results = read.csv("WNCAATourneyCompactResults.csv", header = TRUE)
+head(tourney_results)
+# NCAA tournament seeds
+tourney_seeds = read.csv("WNCAATourneySeeds.csv", header = TRUE)
+head(tourney_seeds)
+# NCAA tourney slots
+tourney_slots = read.csv("WNCAATourneySlots.csv", header  = TRUE)
+head(tourney_slots)
+
+
+
+
+
