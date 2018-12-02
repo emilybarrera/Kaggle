@@ -1,0 +1,155 @@
+setwd("~/Kaggle Data/Elo Loyalty")
+
+# Function to Install and Load R Packages
+# source: 
+# changed function name from Install_And_Load to install_load 
+install_load <- function(Required_Packages)
+{
+  Remaining_Packages <- Required_Packages[!(Required_Packages %in% installed.packages()[,"Package"])];
+  
+  if(length(Remaining_Packages)) 
+  {
+    install.packages(Remaining_Packages);
+  }
+  for(package_name in Required_Packages)
+  {
+    library(package_name,character.only=TRUE,quietly=TRUE);
+  }
+}
+# Specify the list of required packages to be installed and load    
+Required_Packages=c("ggplot2", "Rcpp", "dplyr");
+# Call the Function
+install_load(Required_Packages);
+
+### functions needed 
+upper_outlier = function(x) {
+  lowerq = quantile(x)[2]
+  upperq = quantile(x)[4]
+  iqr = upperq - lowerq #Or use IQR(data)
+  
+  threshold_upper = (iqr * 1.5) + upperq
+  return(as.numeric(threshold_upper))
+  
+}
+
+lower_outlier = function(x) {
+    lowerq = quantile(x)[2]
+    upperq = quantile(x)[4]
+    iqr = upperq - lowerq #Or use IQR(data)
+    
+    threshold_lower = lowerq - (iqr * 1.5)
+    return(as.numeric(threshold_lower))
+    
+}
+
+multiplot <- function(..., plotlist=NULL, cols) {
+  require(grid)
+  
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+  
+  numPlots = length(plots)
+  
+  # Make the panel
+  plotCols = cols                          # Number of columns of plots
+  plotRows = ceiling(numPlots/plotCols) # Number of rows needed, calculated from # of cols
+  
+  # Set up the page
+  grid.newpage()
+  pushViewport(viewport(layout = grid.layout(plotRows, plotCols)))
+  vplayout <- function(x, y)
+    viewport(layout.pos.row = x, layout.pos.col = y)
+  
+  # Make each plot, in the correct location
+  for (i in 1:numPlots) {
+    curRow = ceiling(i/plotCols)
+    curCol = (i-1) %% plotCols + 1
+    print(plots[[i]], vp = vplayout(curRow, curCol ))
+  }
+  
+}
+
+
+# pull in data ------------------------------------------------------------
+# read in all the data
+# what does the test data look like that will be submitted?
+test = read.csv("test.csv", header = TRUE)
+head(test)
+# submittion will just be card_id and target from test data (double check this)
+
+# read in all the data for train
+train = read.csv("train.csv", header = TRUE)
+# check out data
+head(train)
+
+hist_trxn = read.csv("historical_transactions.csv", header = TRUE)
+head(hist_trxn)
+
+merchants = read.csv("merchants.csv", header = TRUE)
+head(merchants)
+
+new_merchant_trxn = read.csv("new_merchant_transactions.csv", header = TRUE)
+head(new_merchant_trxn)
+
+
+
+# understanding loyalty ---------------------------------------------------------------------
+# start with some basic EDA to understand the relationships between the given 
+#   variables and loyalty score
+# i want to understand how the 3 features and first_active_month are related to loyalty
+# i also want to understand what the loyalty even means and what very low and ver high
+#   customers look like
+
+
+
+# what does the distribution of the loyalty score look like?
+ggplot(data = train, aes(x = target)) +
+  geom_histogram()
+# the plot seems to be normally distributed but with outliers
+boxplot(train$target)
+
+upper_outlier(train$target)
+lower_outlier(train$target)
+
+train_no_out = 
+  train %>% 
+  filter(target > lower_outlier(target) &
+           target < upper_outlier(target))
+
+ggplot(data = train_no_out, aes(x = target)) + 
+  geom_histogram()
+# without outlier, the distribution apepars to be standard normal
+# im going to assume the loyalty score from ELO is standardized here
+
+
+ggplot(train, aes(x = target, y= feature_1)) + 
+  geom_point()
+
+
+# compare the distributions of loyalty scores among the features
+multiplot(
+  ggplot(train_no_out[train_no_out$feature_1 == 1, ], aes(x = target) ) +
+    geom_histogram(),
+  ggplot(train_no_out[train_no_out$feature_1 == 2, ], aes(x = target) ) +
+    geom_histogram(),
+  ggplot(train_no_out[train_no_out$feature_1 == 3, ], aes(x = target) ) +
+    geom_histogram(),
+  cols = 3)
+# slight deviations between the features distributions
+# but nothing big enough for my eye to gain any knowledge from
+
+head(train)
+ggplot(train, aes(x = first_active_month, y = target)) +
+  geom_point()
+
+
+
+
+
+
+
+
+
+
+
+
