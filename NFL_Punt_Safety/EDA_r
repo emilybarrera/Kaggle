@@ -1,0 +1,134 @@
+setwd("~/Kaggle Data/NFL Punt Safety/")
+
+# Function to Install and Load R Packages
+# source: 
+# changed function name from Install_And_Load to install_load 
+install_load <- function(Required_Packages)
+{
+  Remaining_Packages <- Required_Packages[!(Required_Packages %in% installed.packages()[,"Package"])];
+  
+  if(length(Remaining_Packages)) 
+  {
+    install.packages(Remaining_Packages);
+  }
+  for(package_name in Required_Packages)
+  {
+    library(package_name,character.only=TRUE,quietly=TRUE);
+  }
+}
+# Specify the list of required packages to be installed and load    
+Required_Packages=c("ggplot2", "Rcpp", "dplyr");
+# Call the Function
+install_load(Required_Packages);
+
+### functions needed 
+upper_outlier = function(x) {
+  lowerq = quantile(x)[2]
+  upperq = quantile(x)[4]
+  iqr = upperq - lowerq #Or use IQR(data)
+  
+  threshold_upper = (iqr * 1.5) + upperq
+  return(as.numeric(threshold_upper))
+  
+}
+
+lower_outlier = function(x) {
+  lowerq = quantile(x)[2]
+  upperq = quantile(x)[4]
+  iqr = upperq - lowerq #Or use IQR(data)
+  
+  threshold_lower = lowerq - (iqr * 1.5)
+  return(as.numeric(threshold_lower))
+  
+}
+
+multiplot <- function(..., plotlist=NULL, cols) {
+  require(grid)
+  
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+  
+  numPlots = length(plots)
+  
+  # Make the panel
+  plotCols = cols                          # Number of columns of plots
+  plotRows = ceiling(numPlots/plotCols) # Number of rows needed, calculated from # of cols
+  
+  # Set up the page
+  grid.newpage()
+  pushViewport(viewport(layout = grid.layout(plotRows, plotCols)))
+  vplayout <- function(x, y)
+    viewport(layout.pos.row = x, layout.pos.col = y)
+  
+  # Make each plot, in the correct location
+  for (i in 1:numPlots) {
+    curRow = ceiling(i/plotCols)
+    curCol = (i-1) %% plotCols + 1
+    print(plots[[i]], vp = vplayout(curRow, curCol ))
+  }
+  
+}
+
+
+# Game Data EDA -----------------------------------------------------------
+## Eda for basic game data
+## aggregating the data i want for this first round of eda. goal is to just understand
+##    the data and basic game information
+
+#dim table for game info
+game_data = read.csv("game_data.csv", header = TRUE)
+
+# dim table for players normal non-special teams position
+player_norm_pos = read.csv("player_punt_data.csv", header = TRUE)
+head(player_norm_pos)
+# dim table for players punt position
+player_punt_role = read.csv("play_player_role_data.csv", header - TRUE)
+head(player_punt_role)
+
+# players rolein a punt with their normal role attached
+player_role = 
+  player_punt_role %>%
+  left_join(player_norm_pos, by = "GSISID") %>% head()
+
+# play level detail for each punt
+player_info = read.csv("play_information.csv", header = TRUE)
+head(player_info)
+
+# hwat kind of players take each punting position?
+
+
+
+# EDA Concussion ----------------------------------------------------------
+## goal here is to get a basic understanding of when concussions happen
+video_review = read.csv("video_review.csv", header = TRUE)
+
+video_injury = read.csv("video_footage-injury.csv", header = TRUE)
+video_control  = read.csv("video_footage-control.csv", header = TRUE)
+
+# there will be duplicate rows if mulitple players got a concussion in the play
+punt_plays = 
+  player_info %>% 
+    # not selecting desciprtion becuase its too long and i dont need it right now
+    # not select play_type because its all punts
+    select(-c(PlayDescription, Play_Type)) %>%
+  left_join(video_review, by = c("Season_Year", "GameKey", "PlayID")) 
+
+head(punt_plays)
+
+### what % of punt plays resulted in a concussion?  
+# number of punt playst
+length(unique(punt_plays$PlayID))
+
+length(unique(
+  punt_plays[is.na(punt_plays$GSISID) == FALSE, ]$PlayID
+))
+
+### how many fair catches resulted in concussions?
+
+
+### how many plays resulted in the concussion of more than 1 player?
+
+
+
+
+
