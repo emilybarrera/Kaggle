@@ -117,16 +117,32 @@ head(punt_plays)
 
 ### what % of punt plays resulted in a concussion?  
 # number of punt playst
+# 3273 punts
 length(unique(punt_plays$PlayID))
 
+# 35 resulted in concussions
 length(unique(
   punt_plays[is.na(punt_plays$GSISID) == FALSE, ]$PlayID
 ))
+
+
 
 ### how many fair catches resulted in concussions?
 
 
 ### how many plays resulted in the concussion of more than 1 player?
+head(video_review)
+
+concussion_count = 
+video_review %>%
+  group_by(PlayID) %>%
+  summarize(concussion_count = n())
+
+# there were 2 plays that resulted in more than 1 concussion
+concussion_count %>% filter(concussion_count > 1)
+# lets take a look at these 2 games
+video_review %>% 
+  filter(PlayID %in% c(1526, 2792))
 
 
 
