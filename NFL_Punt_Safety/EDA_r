@@ -108,9 +108,9 @@ video_control  = read.csv("video_footage-control.csv", header = TRUE)
 # there will be duplicate rows if mulitple players got a concussion in the play
 punt_plays = 
   player_info %>% 
-    # not selecting desciprtion becuase its too long and i dont need it right now
-    # not select play_type because its all punts
-    select(-c(PlayDescription, Play_Type)) %>%
+  # not selecting desciprtion becuase its too long and i dont need it right now
+  # not select play_type because its all punts
+  select(-c(PlayDescription, Play_Type)) %>%
   left_join(video_review, by = c("Season_Year", "GameKey", "PlayID")) 
 
 head(punt_plays)
@@ -134,7 +134,7 @@ length(unique(
 head(video_review)
 
 concussion_count = 
-video_review %>%
+  video_review %>%
   group_by(PlayID) %>%
   summarize(concussion_count = n())
 
@@ -144,7 +144,31 @@ concussion_count %>% filter(concussion_count > 1)
 video_review %>% 
   filter(PlayID %in% c(1526, 2792))
 
+head(video_review)
 
+# type of impact
+video_review %>%
+  group_by(Primary_Impact_Type) %>%
+  summarize(count = n())
 
+# player activity derived
+video_review %>%
+  group_by(Player_Activity_Derived) %>%
+  summarize(count = n())
 
+# partner player activity 
+video_review %>%
+  group_by(Primary_Partner_Activity_Derived) %>%
+  summarize(count = n())
 
+# how often ws it the kicking team and how often was it receving team
+head(punt_plays)
+
+concuss_plays = 
+  punt_plays %>% 
+  filter(is.na(GSISID) == FALSE)
+
+head(concuss_plays)
+head(player_info)
+
+player_info %>% filter(PlayID %in% c(1526))
