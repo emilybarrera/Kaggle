@@ -70,48 +70,253 @@ multiplot <- function(..., plotlist=NULL, cols) {
 }
 
 
-# Game Data EDA -----------------------------------------------------------
-## Eda for basic game data
-## aggregating the data i want for this first round of eda. goal is to just understand
-##    the data and basic game information
-
+# Data Pull and Manipulation ----------------------------------------------
 #dim table for game info
 game_data = read.csv("game_data.csv", header = TRUE)
 
 # dim table for players normal non-special teams position
 player_norm_pos = read.csv("player_punt_data.csv", header = TRUE)
+# nrow: 3259
 head(player_norm_pos)
+
+# there are 2 things creating duplicates in this DF
+# These are cleaned up below
+#   1. the number column has different designations for a single number and player
+#   ie, 49 is 49, 49d, 49D, etc characters are also o, w, etc\
+#     see GSISID: 33704
+#   2. a player can change numbers over seasons
+#     see GSISID: 33710
+
+
+# there appear to be a number of different nubers that a player can have
+# this is most likely due to plays having 2 numbers on the field and the data
+#   needing to be able to differentiate between offense and defense
+#   altough there are other letters like 'w' that im not sure what they signify
+unique(player_norm_pos$Number)
+# heres an example of a player with multiple numbers in here
+player_norm_pos %>% filter(GSISID == 33704)
+
+# want to clean this up so dups dont happen further down the line
+player_norm_pos = 
+  player_norm_pos %>%
+  rename(orig_number = Number) %>%
+  mutate(
+    Number = gsub("[^0-9\\.]", '', orig_number)
+  ) %>%
+  distinct(GSISID, Position, Number)
+head(player_norm_pos)
+# now has nrow: 3132
+# this takes care of the letters in the numbers cuasing duplicates
+# but this does NOT take care of players who switched numbers over the course of the 2 season
+player_norm_pos = 
+  player_norm_pos %>%
+  select(GSISID, Position) %>%
+  distinct()
+# nrow: 2442
+
 # dim table for players punt position
-player_punt_role = read.csv("play_player_role_data.csv", header - TRUE)
+player_punt_role = read.csv("play_player_role_data.csv", header = TRUE)
 head(player_punt_role)
+
+# there appears to be a number of different 
 
 # players rolein a punt with their normal role attached
 player_role = 
   player_punt_role %>%
-  left_join(player_norm_pos, by = "GSISID") %>% head()
+  left_join(player_norm_pos, by = "GSISID") 
+
 
 # play level detail for each punt
-player_info = read.csv("play_information.csv", header = TRUE)
-head(player_info)
+play_info = read.csv("play_information.csv", header = TRUE)
+head(play_info)
 
-# hwat kind of players take each punting position?
-
-
-
-# EDA Concussion ----------------------------------------------------------
-## goal here is to get a basic understanding of when concussions happen
 video_review = read.csv("video_review.csv", header = TRUE)
 
 video_injury = read.csv("video_footage-injury.csv", header = TRUE)
 video_control  = read.csv("video_footage-control.csv", header = TRUE)
 
-# there will be duplicate rows if mulitple players got a concussion in the play
 punt_plays = 
-  player_info %>% 
+  play_info %>% 
   # not selecting desciprtion becuase its too long and i dont need it right now
   # not select play_type because its all punts
   select(-c(PlayDescription, Play_Type)) %>%
   left_join(video_review, by = c("Season_Year", "GameKey", "PlayID")) 
+
+concuss_plays = 
+  punt_plays %>% 
+  filter(is.na(GSISID) == FALSE)
+# add in variable that shows if the concussed player was on the kicking or 
+#   returning team
+concuss_plays = 
+  concuss_plays %>% 
+  mutate(
+    kick_return = 
+      case_when(
+        Player_Activity_Derived %in% c("Tackling", "Blocked") ~ 'kicking',
+        Player_Activity_Derived %in% c("Blocking", "Tackled") ~ 'return',
+        TRUE ~ 'NA'
+      )
+  )
+
+
+# adding in kicking or returning to player role as well as if the player was concussed
+return_pos = as.data.frame(
+  c("VRo","VRi", "PDR1", "PDR2", "PLR", 'PDR3', 'PLM', 'PDL3', 
+    'PDL2', 'PLL', 'PDL1', 'PFB', 'PR', 'VL', 'VLo', 'VLi',
+    'VR', 'PDM')
+)
+colnames(return_pos) = "position"
+# should have 14 postiions. making sure i didnt miss anything
+nrow(return_pos)
+# got them all
+# now take just the unique prefixes 
+#   doing this because there can be more players in a TYPE of role than in the 
+#   reference in the appendix
+return_prefix = 
+  return_pos %>%
+  mutate(
+    prefix = gsub('[[:digit:]]+', '', position)
+  ) %>%
+  select(prefix) %>%
+  distinct()
+
+
+kick_pos = as.data.frame(
+  c('GL', 'PLT', 'PLG', 'PLS', 'PRG', 'PRT', 'GR', 'PRW', 'PLW', 'PC', 'PPR', 'P',
+    'GLi', 'GLo', 'PPL', 'PPLi', 'PPLo', 'GRi', 'GRo', 'PPRi', 'PPRo')
+)
+colnames(kick_pos)= "position"
+# should have 12 positions. making sure i didnt miss anything
+nrow(kick_pos)
+kick_prefix = 
+  kick_pos %>%
+  mutate(
+    prefix = gsub('[[:digit:]]+', '', position)
+  ) %>%
+  select(prefix) %>%
+  distinct()
+
+player_role = 
+  player_role %>%
+  mutate(
+    kick_return = case_when(
+      gsub('[[:digit:]]+', '', Role) %in% return_prefix$prefix ~ 'return',
+      gsub('[[:digit:]]+', '', Role) %in% kick_prefix$prefix ~ 'kicking',
+      TRUE ~ 'NA'
+    )
+  )
+# started by using the diagrams in the appendix but want to make sure i capture everything
+# which punt roles am i missing from the above?
+# making sure all rows have records
+player_role %>% filter(kick_return == 'NA') 
+
+player_role =
+  player_role %>%
+  left_join(
+    concuss_plays %>% select(GameKey, PlayID, GSISID, Player_Activity_Derived),
+    by = c("GameKey", "PlayID", "GSISID")
+  ) %>% 
+  mutate(
+    concussed = 
+      case_when(
+        is.na(Player_Activity_Derived) ==FALSE ~ 1,
+        TRUE ~ 0
+      )
+  ) 
+
+
+# Game Data EDA -----------------------------------------------------------
+## Eda for basic game data
+head(game_data)
+
+nrow(game_data)
+# veriffying that there are no dups
+# supposed to be unique
+length(unique(game_data$GameKey))
+
+head(player_info)
+nrow(play_info)
+
+# number of games to evaluate
+nrow(game_data)
+
+# number of total plays
+nrow(play_info)
+
+# number of plays that resulted in a concussion
+length(unique(concuss_plays$PlayID))
+
+# since play ids are not unique, make sure there arent any duplicates that the 
+#   unique would miss out on
+concuss_plays %>%
+  group_by(GameKey, PlayID) %>%
+  summarize(count = n()) %>%
+  filter(count > 1)
+# none so unqiue count of playids is infact what we are expecting it to be
+
+
+# number of concussions
+nrow(concuss_plays)
+
+# number of players with concussions
+length(unique(concuss_plays$GSISID))
+
+# who was concussed twice?
+concuss_plays %>%
+  group_by(GSISID) %>%
+  summarize(count = n()) %>%
+  filter(count > 1)
+
+
+concuss_plays %>% 
+  filter(GSISID == 28987)
+
+player_role %>%
+  filter(GSISID == 28987) %>%
+  inner_join(concuss_plays, 
+             by = c("GameKey", "PlayID", "GSISID"))
+# tenessee player was concussed again 4 weeks after first concussion
+# a single instance would not be enough to create a rule off of
+
+
+
+# Formation EDA -----------------------------------------------------------
+head(player_role)
+head(concuss_plays)
+head(play_info)
+
+# create dataframe with formation information for each play
+form_temp =
+player_role %>%
+  mutate(game_play = paste(GameKey, PlayID, sep = '_')) %>%
+  filter(kick_return == 'kicking') %>%
+  group_by(game_play) %>%
+  arrange(Role) 
+
+
+formations = 
+  form_temp %>%
+  select(GameKey, PlayID, game_play, GSISID, Role) %>%
+  mutate(
+    form = paste(Role, collapse = "_")
+  ) %>%
+  select(game_play, form) %>%
+  distinct()
+
+head(concuss_plays)
+
+# missing some plays
+form_temp %>%
+  select(GameKey, PlayID, concussed, game_play) %>%
+  group_by(game_play) %>%
+  summarize(concuss_play = max(concussed)) %>% filter(concuss_play ==1)
+
+
+
+
+# EDA Concussion ----------------------------------------------------------
+## goal here is to get a basic understanding of when concussions happen
+# there will be duplicate rows if mulitple players got a concussion in the play
 
 head(punt_plays)
 
@@ -164,9 +369,6 @@ video_review %>%
 # how often ws it the kicking team and how often was it receving team
 head(punt_plays)
 
-concuss_plays = 
-  punt_plays %>% 
-  filter(is.na(GSISID) == FALSE)
 
 head(concuss_plays)
 head(player_info)
@@ -179,21 +381,25 @@ head(concuss_plays)
 
 unique(concuss_plays$Player_Activity_Derived)
 
-concuss_plays = 
-  concuss_plays %>% 
-  mutate(
-    kick_return = 
-      case_when(
-        Player_Activity_Derived %in% c("Tackling", "Blocked") ~ 'kicking',
-        Player_Activity_Derived %in% c("Blocking", "Tackled") ~ 'return',
-        TRUE ~ 'NA'
-      )
-  )
+
 # checking to make sure every play has this
 concuss_plays %>% filter(kick_return == 'NA')
 # verified that the column is acting the way it should
 # now look at the play where both players were concussed
 concuss_plays %>%filter(PlayID %in% c(1526, 2792))
+
+head(concuss_plays)
+
+concuss_plays %>%
+  group_by(kick_return) %>%
+  summarize(count = n())
+# so the kicking team is more likely to be concussed
+# this is not what i was guessing. my original hypothesis was that the returngin team 
+#   would be the ones more likely to be concussed because of the speed difference and
+#   totally getting taken out on returns
+
+# 
+
 
 
 
@@ -223,7 +429,28 @@ concuss_plays %>%filter(PlayID %in% c(1526, 2792))
 
 # does the distance of the punt have anything to do with likelihood to get concussed
 
-# 
+# does the air time have anything to do with it?
+
+# hwat kind of players take each punting position?
+
+# dig into friendly fire 
+# is there a particular formation that results in friendly fire?
+
+
+
+
+
+
+### want to comapre kcikoff rule changes with punt sitatu9ions
+# when do concsussion causing blocks happen?
+#   kickoff rules changed to no blocking in first 15 yeards, is there something 
+#   similar to that we can leverage?
+
+# do wedge blocks happen in punts?
+#   do tehy cause concussions?
+
+# would a setup zone be helpful?
+
 
 
 
