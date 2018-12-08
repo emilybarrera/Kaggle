@@ -172,3 +172,69 @@ head(concuss_plays)
 head(player_info)
 
 player_info %>% filter(PlayID %in% c(1526))
+
+
+# is it more likely that the kicking team or return team is concussed?
+head(concuss_plays)
+
+unique(concuss_plays$Player_Activity_Derived)
+
+concuss_plays = 
+  concuss_plays %>% 
+  mutate(
+    kick_return = 
+      case_when(
+        Player_Activity_Derived %in% c("Tackling", "Blocked") ~ 'kicking',
+        Player_Activity_Derived %in% c("Blocking", "Tackled") ~ 'return',
+        TRUE ~ 'NA'
+      )
+  )
+# checking to make sure every play has this
+concuss_plays %>% filter(kick_return == 'NA')
+# verified that the column is acting the way it should
+# now look at the play where both players were concussed
+concuss_plays %>%filter(PlayID %in% c(1526, 2792))
+
+
+
+
+# remaining questions -----------------------------------------------------
+# what are the formations resulting in the most concussions?
+
+# how do the most dangerous formations compare in non-concussion plays?
+
+# what tyoes of situations call for the most dangerous situations?
+#   is it a last minute effort (close game, end of game, etc) or is it a tpyical mid game call
+
+# what type of player cuases the most concussions
+
+# is there a type of player in formation that have more frequent occurences
+#   could you limit what type of player can be where in the formation
+#   ie, no OLB (big boys) in position X that puts them at a size/power advantage?
+
+# does turf play any role?
+
+
+
+# compare concussed  examples to similar plays that did not result in a concussion
+#   is there anything here?
+
+# are there any fakes in the data that lead to concussions?
+
+# does the distance of the punt have anything to do with likelihood to get concussed
+
+# 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
